@@ -1,61 +1,18 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { DataConnection } from "peerjs"
-
 import { Card, Chip, CloseButton, Input, Button } from "@heroui/react"
-
 import { CircleFill, PaperPlane } from "@gravity-ui/icons"
 
+import { useConnection } from "@/hooks/useConnection"
+
 export interface MessageLogProps {
-    id: string
     connection: DataConnection
 }
 
-export interface MessageLog { 
-    self: boolean, 
-    message: string,
-    timestamp: number
-}
+export function MessageLog({ connection }: MessageLogProps) {
+    const { logs, send } = useConnection({ connection })
 
-export type IncomingData = IncomingMessageData;
-
-export type IncomingMessageData = {
-    type: "message",
-    message: string
-}
-
-export function MessageLog({ id, connection }: MessageLogProps) {
-    const [logs, setLogs] = useState<MessageLog[]>([])
     const [message, setMessage] = useState("")
-
-    function send(message: string) {
-        if (!connection) return
-
-        let payload: IncomingData = {
-            type: "message",
-            message
-        }
-
-        connection.send(payload)
-        setLogs((logs) => [...logs, { self: true, message, timestamp: Date.now() }])
-    }
-    
-    useEffect(() => {
-        if (!id ||!connection) return
-
-        function handleData(raw: unknown) {
-            let data = raw as IncomingData
-
-            if (data.type == "message") {
-                setLogs((logs) => [...logs, { self: false, message: data.message, timestamp: Date.now() }])
-            }
-        }
-
-        connection.on("data", handleData)
-
-        return () => {
-            connection.off("data", handleData)
-        }
-    }, [id, connection])
 
     return <Card>
         <Card.Header>
@@ -71,31 +28,19 @@ export function MessageLog({ id, connection }: MessageLogProps) {
             </div>
 
             <span className="text-muted text-sm">ID</span>
-            <span>{id}</span>
+            <span>{connection.peer}</span>
         </Card.Header>
 
         <Card.Content>
             <span className="text-muted text-sm">MESSAGES</span>
             {
                 logs.length ?
-                <>
-                <br />
-                    {
-                        logs.map((log) => {
-                            if (log.self) {
-                                return <div key={log.timestamp} className="p-2.5 rounded-lg bg-blue-600 max-w-[80%] ml-auto w-fit mb-2">
-                                    <span className="px-4 text-xs text-blue-100 block">You</span>
-                                    <span className="px-4 text-white block">{log.message}</span>
-                                </div>
-                            } else {
-                                return <div key={log.timestamp} className="p-2.5 rounded-lg bg-neutral-800 max-w-[80%] mr-auto w-fit">
-                                    <span className="px-4 text-xs text-muted block">Them</span>
-                                    <span className="px-4 text-white block">{log.message}</span>
-                                </div>
-                            }
-                        })
-                    }
-                </>
+                logs.map((log) => {
+                    return <div key={log.timestamp} className={`p-2.5 rounded-lg max-w-[80%] w-fit ${log.self ? "ml-auto bg-blue-600": "mr-auto bg-neutral-800"}`}>
+                        <span className={`px-4 text-xs ${log.self ? "text-blue-100" : "text-muted"} block`}>{log.self ? "You" : "Them"}</span>
+                        <span className="px-4 text-white block">{log.message}</span>
+                    </div>
+                })
                 :
                 <span className="text-center text-muted text-xs">No messages.</span>
             }

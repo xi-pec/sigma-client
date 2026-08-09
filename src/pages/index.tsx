@@ -24,27 +24,42 @@ export default function IndexPage() {
   const [connections, setConnections] = useState<Record<string, DataConnection>>({})
   const [peer, setPeer] = useState("")
 
+  function register(id: string, connection: DataConnection) {
+    setConnections((prev) => ({ ...prev, [id]: connection }))
+  }
+
+  function unregister(id: string) {
+    setConnections((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+  }
+
+  function handleConnection(connection: DataConnection) {
+    let id = connection.peer
+
+    connection.on("open", () => {
+      console.log(`Connection to ${id} open`)
+      register(id, connection)
+    })
+
+    connection.on("close", () => {
+      console.log(`Connection to ${id} closed`)
+      unregister(id)
+    })
+  }
+
+  function connect(id: string) {
+    id = id.trim()
+    if (!self || connections[id] || self.id == id) return
+
+    const connection = self.connect(id)
+    handleConnection(connection)
+  }
+
   useEffect(() => {
     if (!self) return
-
-    function handleConnection(connection: DataConnection) {
-      let id = connection.peer
-      setConnections((prev) => ({ ...prev, [id]: connection }))
-
-      connection.on("open", () => {
-        console.log(`Connection to ${id} open`)
-        setConnections((prev) => ({ ...prev, [id]: connection }))
-      })
-
-      connection.on("close", () => {
-        console.log(`Connection to ${id} closed`)
-        setConnections((prev) => {
-          const next = { ...prev }
-          delete next[id]
-          return next
-        })
-      })
-    }
 
     self.on("connection", handleConnection)
 
@@ -52,27 +67,6 @@ export default function IndexPage() {
       self.off("connection", handleConnection)
     }
   }, [self])
-
-  function connect(id: string) {
-    id = id.trim()
-    if (!self || connections[id] || self.id == id) return
-
-    const connection = self.connect(id)
-
-    connection.on("open", () => {
-      console.log(`Connection to ${id} open`)
-      setConnections((prev) => ({ ...prev, [id]: connection }))
-    })
-
-    connection.on("close", () => {
-      console.log(`Connection to ${id} closed`)
-      setConnections((prev) => {
-        const next = { ...prev }
-        delete next[id]
-        return next
-      })
-    })
-  }
 
   return (
     <DefaultLayout>
@@ -99,7 +93,7 @@ export default function IndexPage() {
         <div className="w-full">
           {
             Object.entries(connections).map(([id, connection]) => (
-              <MessageLog key={id} id={id} connection={connection}/>
+              <MessageLog key={id} connection={connection}/>
             ))
           }
         </div>
