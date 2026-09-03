@@ -15,7 +15,9 @@ function useClient() {
             return
         }
 
-        let instance = new Peer({
+        let saved = localStorage.getItem("id") ?? ""
+
+        let instance = new Peer(saved, {
             host: "localhost",
             port: 9000,
             path: "/peer/",
@@ -26,6 +28,8 @@ function useClient() {
 
         instance.on("open", (id: string) => {
             setId(id)
+
+            localStorage.setItem("id", id)
         })
 
         setSelf(instance)
