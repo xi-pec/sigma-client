@@ -16,10 +16,8 @@ import DefaultLayout from "@/layouts/default";
 
 import { useClient } from "@/hooks/useClient"
 
-import { MessageLog } from "@/components/MessageLog";
-
 export default function IndexPage() {
-  const { self, id } = useClient()
+  const self = useClient()
 
   const [connections, setConnections] = useState<Record<string, DataConnection>>({})
   const [peer, setPeer] = useState("")
@@ -70,33 +68,31 @@ export default function IndexPage() {
 
   return (
     <DefaultLayout>
-      <div className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
-        <Card className="w-full" variant="transparent">
-          <Card.Header>
-            <span className="text-muted text-sm">ID</span>
-            <span>{id}</span>
-          </Card.Header>
+      <Card className="w-full" variant="transparent">
+        <Card.Header>
+          <span className="text-muted text-sm">ID</span>
+          <span>{self?.id}</span>
+        </Card.Header>
 
-          <Card.Content>
-            <span className="text-muted text-sm">CONNECT</span>
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <Input value={peer} onChange={(e) => setPeer(e.target.value)}/>
-              <Button isIconOnly onPress={() => connect(peer)}>
-                <PlugConnection />
-              </Button>
-            </div>
-          </Card.Content>
-        </Card>
+        <Card.Content>
+          <span className="text-muted text-sm">CONNECT</span>
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <Input value={peer} onChange={(e) => setPeer(e.target.value)}/>
+            <Button isIconOnly onPress={() => connect(peer)}>
+              <PlugConnection />
+            </Button>
+          </div>
+        </Card.Content>
+      </Card>
 
-        <Separator />
+      <Separator />
 
-        <div className="w-full">
-          {
-            Object.entries(connections).map(([id, connection]) => (
-              <MessageLog key={id} connection={connection}/>
-            ))
-          }
-        </div>
+      <div className="w-full">
+        {
+          // Object.entries(connections).map(([id, connection]) => (
+          //   <ConversationLog key={id} connection={connection}/>
+          // ))
+        }
       </div>
     </DefaultLayout>
   );

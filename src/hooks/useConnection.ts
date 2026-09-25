@@ -1,10 +1,8 @@
 import { v4 } from "uuid"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { DataConnection } from "peerjs"
 
-interface UseConnectionProps {
-    connection: DataConnection
-}
+import { useClient } from "@/hooks/useClient"
 
 export interface MessageLog { 
     self: boolean,
@@ -14,13 +12,19 @@ export interface MessageLog {
 
 export type IncomingData = IncomingMessageData;
 
+interface UseConnectionProps {
+    id: string
+}
+
 export type IncomingMessageData = {
     type: "message",
     id: string,
     message: string
 }
 
-function useConnection({ connection }: UseConnectionProps) {
+function useConnection({ id }: UseConnectionProps) {
+    const client = useClient()
+    const connection = useRef<DataConnection | null>(null);
     const [logs, setLogs] = useState<Record<string, MessageLog>>({})
 
     function log(self: boolean, id: string, message: string) {
@@ -38,7 +42,7 @@ function useConnection({ connection }: UseConnectionProps) {
             id, message
         }
 
-        connection.send(payload)
+        connection.current?.send(payload)
         log(true, id, message)
     }
 
@@ -51,10 +55,23 @@ function useConnection({ connection }: UseConnectionProps) {
     }
 
     useEffect(() => {
-        connection.on("data", receive)
+        const instance = client?.connect(id)
+        if (instance) {
+            connection.current = instance
+        }
+
+        instance?.once("open", () => {
+            console.log(`Connection to ${id} open`)
+        })
+
+        instance?.once("close", () => {
+            console.log(`Connection to ${id} closed`)
+        })
+
+        instance?.on("data", receive)
 
         return () => {
-            connection.off("data", receive)
+            instance?.off("data", receive)
         }
     }, [])
 
