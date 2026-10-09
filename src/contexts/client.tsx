@@ -2,9 +2,26 @@ import { useCallback, useEffect, useRef, useState, createContext, ReactNode } fr
 import  { DataConnection, Peer } from "peerjs"
 import { v4 } from "uuid";
 
+import {
+	SignatureAlgorithm, SignatureAlgorithmKey,
+	SignatureAlgorithmSecretKey, SignatureAlgorithmSharedKey,
+	keygen,
+} from "sigma-protocol"
+
+export type KeyPair<A extends SignatureAlgorithm> = { 
+	secret: SignatureAlgorithmSecretKey<A>,
+	shared: SignatureAlgorithmSharedKey<A>
+}
+
+export type Keys = { 
+	ECDSA: KeyPair<SignatureAlgorithm.ECDSA>
+	Ed25519: KeyPair<SignatureAlgorithm.ED25519>
+}
+
 const ClientContext = createContext<{
 	self: Peer | null
 	id: string | null
+	keys: Keys | null
 	connections: Map<string, DataConnection>
 	logs: Record<string, Record<string, MessageLog>>
 	connect: (peer: string) => DataConnection | null
@@ -32,6 +49,7 @@ export type IncomingMessageData = {
 function ClientProvider({ children }: ClientProviderProps) {
 	const [self, setSelf] = useState<Peer | null>(null)
 	const [id, setId] = useState<string | null>(null)
+	const [keys, setKeys] = useState<Keys | null>(null)
 	const [connections, setConnections] = useState<Map<string, DataConnection>>(new Map())
 	const [logs, setLogs] = useState<Record<string, Record<string, MessageLog>>>(() => {
 		try {
@@ -138,6 +156,60 @@ function ClientProvider({ children }: ClientProviderProps) {
 	}
 
 	useEffect(() => {
+		function generate() {
+			const ECDSA = keygen(SignatureAlgorithm.ECDSA) as KeyPair<SignatureAlgorithm.ECDSA>
+			const Ed25519 = keygen(SignatureAlgorithm.ED25519) as KeyPair<SignatureAlgorithm.ED25519>
+			const keys: Keys = { ECDSA, Ed25519 }
+
+			setKeys(keys)
+			
+			const serialized = JSON.stringify({
+				ecdsa: {
+					secret: ECDSA.secret.toHex(),
+					shared: ECDSA.shared.toHex()
+				},
+
+				ed25519: {
+					secret: Ed25519.secret.toHex(),
+					shared: Ed25519.shared.toHex()
+				}
+			})
+
+			localStorage.setItem("keypairs", serialized)
+		}
+
+		const saved = localStorage.getItem("keypairs")
+		if (saved) {
+			try {
+				const deserialized: {
+					ecdsa: { secret: string, shared: string },
+					ed25519: { secret: string, shared: string }
+				} = JSON.parse(saved)
+				
+				if (
+					!deserialized.ecdsa || !deserialized.ed25519 ||
+					!deserialized.ecdsa.secret || !deserialized.ecdsa.shared ||
+					!deserialized.ed25519.secret || !deserialized.ed25519.shared
+				) { generate() } else {
+					const keys: Keys = {
+						ECDSA: {
+							secret: SignatureAlgorithmKey.fromHex(deserialized.ecdsa.secret, "secret", SignatureAlgorithm.ECDSA),
+							shared: SignatureAlgorithmKey.fromHex(deserialized.ecdsa.shared, "shared", SignatureAlgorithm.ECDSA)
+						},
+
+						Ed25519: {
+							secret: SignatureAlgorithmKey.fromHex(deserialized.ed25519.secret, "secret", SignatureAlgorithm.ED25519),
+							shared: SignatureAlgorithmKey.fromHex(deserialized.ed25519.shared, "shared", SignatureAlgorithm.ED25519)
+						},
+					}
+
+					setKeys(keys)
+				}
+			} catch { generate() }
+		} else generate()
+	}, [])
+
+	useEffect(() => {
 		if (ref.current && !ref.current.destroyed) {
 			setSelf(ref.current)
 
@@ -220,7 +292,7 @@ function ClientProvider({ children }: ClientProviderProps) {
 		localStorage.setItem("chat_logs", JSON.stringify(logs))
 	}, [logs])
 
-	return <ClientContext.Provider value={{self, id, connections, logs, connect, send}}>{children}</ClientContext.Provider>
+	return <ClientContext.Provider value={{self, id, keys, connections, logs, connect, send}}>{children}</ClientContext.Provider>
 }
 
 export { ClientContext, ClientProvider }
