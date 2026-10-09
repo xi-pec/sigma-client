@@ -7,6 +7,7 @@ import {
 } from "@heroui/react"
 
 import {
+  ArrowRotateLeft,
   PaperPlane,
   Person
 } from "@gravity-ui/icons"
@@ -22,7 +23,7 @@ import { useConnection } from "@/hooks/useConversation";
 export default function ConversationPage() {
   const { peer } = useParams()
 
-  const { logs, send } = useConnection({ id: peer ?? "" })
+  const { connected, logs, reconnect, send } = useConnection({ id: peer ?? "" })
 
   const [message, setMessage] = useState<string>("")
 
@@ -43,9 +44,22 @@ export default function ConversationPage() {
       </div>
 
       <div className="w-full grid grid-cols-[1fr_auto] gap-2">
-        <Input fullWidth variant="secondary" value={message} onChange={(e) => setMessage(e.target.value)}/>
-        <Button isIconOnly onPress={() => send(message)}>
-            <PaperPlane />
+        <Input 
+          className="indent-[.5rem]" 
+          fullWidth variant="secondary" 
+          placeholder={connected ? "Aa" : `${peer} is offline.`} 
+          value={connected ? message : `${peer} is offline.`} 
+          onChange={(e) => setMessage(e.target.value)}
+          disabled={!connected}
+        />
+
+        <Button 
+          isIconOnly 
+          onPress={() => connected? send(message) : reconnect() }
+        >
+          {
+            connected ? <PaperPlane /> : <ArrowRotateLeft />
+          }
         </Button>
       </div>
     </DefaultLayout>

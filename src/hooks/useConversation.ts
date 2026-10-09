@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 import { useClient } from "@/hooks/useClient"
 
@@ -22,13 +22,23 @@ export type IncomingMessageData = {
 
 function useConnection({ id }: UseConnectionProps) {
   const client = useClient()
-  
+
+  const [connected, setConnected] = useState<boolean>(false)
+
   useEffect(() => {
     client.connect(id)
   }, [id])
 
-  return { 
-    logs: client.logs[id] ?? {}, 
+  useEffect(() => {
+    const connection = client.connections.get(id)
+    if (!connection || !connection.open) setConnected(false)
+    else setConnected(true)
+  }, [client.connections])
+
+  return {
+    connected,
+    logs: client.logs[id] ?? {},
+    reconnect: () => client.connect(id),
     send: (message: string) => client.send(id, message)
   }
 }

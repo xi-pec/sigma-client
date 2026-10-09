@@ -4,6 +4,7 @@ import { v4 } from "uuid";
 
 const ClientContext = createContext<{
 	self: Peer | null,
+	connections: Map<string, DataConnection>
 	logs: Record<string, Record<string, MessageLog>>
 	connect: (peer: string) => DataConnection | null
 	send: (peer: string, message: string) => void
@@ -29,7 +30,7 @@ export type IncomingMessageData = {
 
 function ClientProvider({ children }: ClientProviderProps) {
 	const [self, setSelf] = useState<Peer | null>(null)
-	const connections = useRef<Map<string, DataConnection>>(new Map())
+	const [connections, setConnections] = useState<Map<string, DataConnection>>(new Map())
 	const [logs, setLogs] = useState<Record<string, Record<string, MessageLog>>>(() => {
 		try {
 			const saved = localStorage.getItem("chat_logs")
@@ -53,17 +54,33 @@ function ClientProvider({ children }: ClientProviderProps) {
 		})
 	}
 
+	function addConnection(connection: DataConnection) {
+		setConnections((prev) => {
+			const next = new Map(prev)
+			next.set(connection.peer, connection)
+			return next
+		})
+	}
+
+	function removeConnection(peer: string) {
+		setConnections((prev) => {
+			const next = new Map(prev)
+			next.delete(peer)
+			return next
+		})
+	}
+
 	function handleConnection(connection: DataConnection) {
 		connection.on("open", () => {
-			connections.current.set(connection.peer, connection)
+			addConnection(connection)
 		})
 		
 		connection.on("error", () => {
-			connections.current.delete(connection.peer)
+			removeConnection(connection.peer)
 		})
 		
 		connection.on("close", () => {
-			connections.current.delete(connection.peer)
+			removeConnection(connection.peer)
 		})
 		
 		connection.on("data", (raw: unknown) => {
@@ -78,8 +95,8 @@ function ClientProvider({ children }: ClientProviderProps) {
 	function connect(peer: string): DataConnection | null {
 		if (!self) return null
 
-		if (connections.current.has(peer)) {
-			return connections.current.get(peer) ?? null
+		if (connections.has(peer)) {
+			return connections.get(peer) ?? null
 		}
 
 		const connection = self.connect(peer)
@@ -157,7 +174,7 @@ function ClientProvider({ children }: ClientProviderProps) {
 		localStorage.setItem("chat_logs", JSON.stringify(logs))
 	}, [logs])
 
-	return <ClientContext.Provider value={{self, logs, connect, send}}>{children}</ClientContext.Provider>
+	return <ClientContext.Provider value={{self, connections, logs, connect, send}}>{children}</ClientContext.Provider>
 }
 
 export { ClientContext, ClientProvider }
