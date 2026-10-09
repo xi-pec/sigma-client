@@ -43,7 +43,7 @@ export default function IndexPage() {
       <Card className="w-full" variant="transparent">
         <Card.Header>
           <span className="text-muted text-sm">ID</span>
-          <span>{client.self?.id ?? "..."}</span>
+          <span>{client.id ?? "..."}</span>
         </Card.Header>
 
         <Card.Content>
@@ -72,17 +72,27 @@ export default function IndexPage() {
 
                 <br />
 
-                {
-                  [getLatestMessage(logs)].map((log) => {
-                    if (!log) return <span className="text-muted">No messages.</span>
+                {(() => {
+                  const log = getLatestMessage(logs);
 
-                    const msg = log.message.length > 48 ? log.message.substring(0, 45).trim() + "..." : log.message
-                    return <>
-                      <span className="text-muted">{`${log.self ? "You" : "Them"}: ${msg}`}</span>
-                      <Timestamp className="float-right" timestamp={log.timestamp}/>
-                    </>
-                  })
-                }
+                  if (!log) {
+                    return <span className="text-sm text-muted">No messages.</span>;
+                  }
+
+                  const msg =
+                    log.message.length > 48
+                      ? `${log.message.substring(0, 45).trim()}...`
+                      : log.message;
+
+                  return (
+                    <div className="flex items-center justify-between text-muted text-sm gap-2">
+                      <span className="truncate">
+                        {log.self ? "You" : "Them"}: {msg}
+                      </span>
+                      <Timestamp className="shrink-0" timestamp={log.timestamp} />
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))

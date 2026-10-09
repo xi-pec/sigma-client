@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, createContext, ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, createContext, ReactNode } from "react";
 import  { DataConnection, Peer } from "peerjs"
 import { v4 } from "uuid";
 
 const ClientContext = createContext<{
-	self: Peer | null,
+	self: Peer | null
+	id: string | null
 	connections: Map<string, DataConnection>
 	logs: Record<string, Record<string, MessageLog>>
 	connect: (peer: string) => DataConnection | null
@@ -30,6 +31,7 @@ export type IncomingMessageData = {
 
 function ClientProvider({ children }: ClientProviderProps) {
 	const [self, setSelf] = useState<Peer | null>(null)
+	const [id, setId] = useState<string | null>(null)
 	const [connections, setConnections] = useState<Map<string, DataConnection>>(new Map())
 	const [logs, setLogs] = useState<Record<string, Record<string, MessageLog>>>(() => {
 		try {
@@ -39,6 +41,12 @@ function ClientProvider({ children }: ClientProviderProps) {
 	})
 
 	const ref = useRef<Peer | null>(null)
+	const [retries, setRetries] = useState(0)
+
+	// if needed for UI in future
+	// const retry = useCallback(() => {
+	// 	setRetries((prev) => prev + 1)
+	// }, [])
 
 	function log(peer: string, id: string, self: boolean, message: string) {
 		const timestamp = Date.now()
@@ -70,7 +78,7 @@ function ClientProvider({ children }: ClientProviderProps) {
 		})
 	}
 
-	function handleConnection(connection: DataConnection) {
+	const handleConnection = useCallback((connection: DataConnection) => {
 		connection.on("open", () => {
 			addConnection(connection)
 		})
@@ -90,7 +98,7 @@ function ClientProvider({ children }: ClientProviderProps) {
 				log(connection.peer, data.id, false, data.message)
 			}
 		})
-	}
+	}, [])
 	
 	function connect(peer: string): DataConnection | null {
 		if (!self) return null
@@ -148,7 +156,45 @@ function ClientProvider({ children }: ClientProviderProps) {
 		ref.current = instance
 
 		instance.on("open", (id: string) => {
+			setId(id)
 			localStorage.setItem("id", id)
+
+			setRetries(0)
+		})
+
+		instance.on("error", (e) => {
+			switch(e.type) {
+				case "network":
+				case "disconnected":
+				case "unavailable-id":
+				case "webrtc":
+					setId(null)
+
+					if (ref.current) {
+						ref.current.destroy()
+						ref.current = null
+					}
+
+					setTimeout(() => {
+						setRetries((prev) => prev + 1)
+					}, 3000 * (0 + 1))
+					break;
+
+				case "peer-unavailable":
+					break;
+
+				default:
+					setId(null)
+					break;
+			}
+		})
+
+		instance.on("disconnected", () => {
+			setId(null)
+		})
+
+		instance.on("close", () => {
+			setId(null)
 		})
 
 		instance.on("connection", handleConnection)
@@ -168,13 +214,13 @@ function ClientProvider({ children }: ClientProviderProps) {
 			instance.destroy()
 			ref.current = null
 		}
-	}, [])
+	}, [retries, handleConnection])
 
 	useEffect(() => {
 		localStorage.setItem("chat_logs", JSON.stringify(logs))
 	}, [logs])
 
-	return <ClientContext.Provider value={{self, connections, logs, connect, send}}>{children}</ClientContext.Provider>
+	return <ClientContext.Provider value={{self, id, connections, logs, connect, send}}>{children}</ClientContext.Provider>
 }
 
 export { ClientContext, ClientProvider }

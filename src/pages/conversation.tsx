@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 import {
   Avatar,
   Button,
@@ -8,11 +6,13 @@ import {
 
 import {
   ArrowRotateLeft,
+  ChevronLeft,
   PaperPlane,
   Person
 } from "@gravity-ui/icons"
 
-import { useParams } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 import DefaultLayout from "@/layouts/default";
 
@@ -22,6 +22,7 @@ import { useConnection } from "@/hooks/useConversation";
 
 export default function ConversationPage() {
   const { peer } = useParams()
+  const navigate = useNavigate()
 
   const { connected, logs, reconnect, send } = useConnection({ id: peer ?? "" })
 
@@ -30,6 +31,9 @@ export default function ConversationPage() {
   return (
     <DefaultLayout>
       <div className="flex flex-row items-center gap-4">
+        <Button isIconOnly variant="ghost" size="sm" onPress={() => navigate("/")}>
+            <ChevronLeft />
+          </Button>
         <Avatar>
           <Avatar.Fallback>
             <Person />
@@ -47,8 +51,8 @@ export default function ConversationPage() {
         <Input 
           className="indent-[.5rem]" 
           fullWidth variant="secondary" 
-          placeholder={connected ? "Aa" : `${peer} is offline.`} 
-          value={connected ? message : `${peer} is offline.`} 
+          placeholder={connected ? "Aa" : `${peer} is unavailable.`} 
+          value={connected ? message : `${peer} is unavailable.`} 
           onChange={(e) => setMessage(e.target.value)}
           disabled={!connected}
         />
