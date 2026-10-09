@@ -1,84 +1,56 @@
 import { 
-  Card,
-  Separator,
-  Input,
+  Avatar,
   Button,
+  Card,
+  Input,
+  Separator,
 } from "@heroui/react"
 
 import {
+  Person,
   PlugConnection,
 } from "@gravity-ui/icons"
 
-import { useEffect, useState } from "react";
-import { DataConnection } from "peerjs";
+import { useState } from "react"
+import { useNavigate } from "react-router-dom";
 
 import DefaultLayout from "@/layouts/default";
 
 import { useClient } from "@/hooks/useClient"
+import { MessageLog } from "@/contexts/client";
+import { Timestamp } from "@/components/Timestamp";
 
 export default function IndexPage() {
-  const self = useClient()
+  const client = useClient()
+  const navigate = useNavigate()
 
-  const [connections, setConnections] = useState<Record<string, DataConnection>>({})
-  const [peer, setPeer] = useState("")
+  const [peer, setPeer] = useState<string>("")
 
-  function register(id: string, connection: DataConnection) {
-    setConnections((prev) => ({ ...prev, [id]: connection }))
-  }
+  function getLatestMessage(logs: Record<string, MessageLog>): MessageLog | null {
+    const entries = Object.entries(logs)
 
-  function unregister(id: string) {
-    setConnections((prev) => {
-      const next = { ...prev }
-      delete next[id]
-      return next
-    })
-  }
-
-  function handleConnection(connection: DataConnection) {
-    let id = connection.peer
-
-    connection.on("open", () => {
-      console.log(`Connection to ${id} open`)
-      register(id, connection)
-    })
-
-    connection.on("close", () => {
-      console.log(`Connection to ${id} closed`)
-      unregister(id)
-    })
-  }
-
-  function connect(id: string) {
-    id = id.trim()
-    if (!self || connections[id] || self.id == id) return
-
-    const connection = self.connect(id)
-    handleConnection(connection)
-  }
-
-  useEffect(() => {
-    if (!self) return
-
-    self.on("connection", handleConnection)
-
-    return () => {
-      self.off("connection", handleConnection)
+    let recent = null
+    for (const entry of entries) {
+      if (!recent || entry[1].timestamp > recent[1].timestamp) 
+        recent = entry
     }
-  }, [self])
+
+    return recent ? recent[1] : null
+  }
 
   return (
     <DefaultLayout>
       <Card className="w-full" variant="transparent">
         <Card.Header>
           <span className="text-muted text-sm">ID</span>
-          <span>{self?.id}</span>
+          <span>{client.self?.id ?? "..."}</span>
         </Card.Header>
 
         <Card.Content>
           <span className="text-muted text-sm">CONNECT</span>
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <Input value={peer} onChange={(e) => setPeer(e.target.value)}/>
-            <Button isIconOnly onPress={() => connect(peer)}>
+            <Button isIconOnly onPress={() => client.connect(peer)}>
               <PlugConnection />
             </Button>
           </div>
@@ -89,9 +61,31 @@ export default function IndexPage() {
 
       <div className="w-full">
         {
-          // Object.entries(connections).map(([id, connection]) => (
-          //   <ConversationLog key={id} connection={connection}/>
-          // ))
+          Object.entries(client.logs).map(([id, logs]) => (
+            <div key={id} className="p-2 rounded-xl grid grid-cols-[auto_1fr] gap-4 hover:bg-default" onClick={() => navigate(`/conversation/${id}`)}>
+              <Avatar size="lg">
+                <Avatar.Fallback><Person /></Avatar.Fallback> 
+              </Avatar>
+
+              <div>
+                <span>{id}</span>
+
+                <br />
+
+                {
+                  [getLatestMessage(logs)].map((log) => {
+                    if (!log) return <span className="text-muted">No messages.</span>
+
+                    const msg = log.message.length > 48 ? log.message.substring(0, 45).trim() + "..." : log.message
+                    return <>
+                      <span className="text-muted">{`${log.self ? "You" : "Them"}: ${msg}`}</span>
+                      <Timestamp className="float-right" timestamp={log.timestamp}/>
+                    </>
+                  })
+                }
+              </div>
+            </div>
+          ))
         }
       </div>
     </DefaultLayout>
