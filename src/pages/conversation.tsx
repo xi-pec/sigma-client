@@ -59,7 +59,12 @@ export default function ConversationPage() {
 
         <Button 
           isIconOnly 
-          onPress={() => connected? send(message) : reconnect() }
+          onPress={() => {
+            if (connected) {
+              send(message)
+              setMessage("")
+            } else reconnect()
+          }}
         >
           {
             connected ? <PaperPlane /> : <ArrowRotateLeft />
