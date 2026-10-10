@@ -80,7 +80,7 @@ export default function ConversationsListPage() {
                   }
 
                   return (
-                    <div className="flex items-center justify-between text-muted text-sm gap-2">
+                    <div className="pr-2 flex items-center justify-between text-muted text-sm gap-2">
                       <span className="truncate">
                         {log.self ? "You" : "Them"}: {log.message}
                       </span>
