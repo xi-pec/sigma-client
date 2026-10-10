@@ -59,7 +59,7 @@ export default function ConversationsListPage() {
 
       <Separator />
 
-      <div className="w-full">
+      <div className="w-full overflow-y-scroll scrollbar-thin">
         {
           Object.entries(client.logs).map(([id, logs]) => (
             <div key={id} className="p-2 rounded-xl grid grid-cols-[auto_1fr] gap-4 hover:bg-default" onClick={() => navigate(`/conversations/${id}`)}>
