@@ -11,7 +11,7 @@ import {
   Person
 } from "@gravity-ui/icons"
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import DefaultLayout from "@/layouts/default";
@@ -27,6 +27,11 @@ export default function ConversationPage() {
   const { connected, logs, reconnect, send } = useConnection({ id: peer ?? "" })
 
   const [message, setMessage] = useState<string>("")
+  const end = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: "instant" })
+  }, [])
 
   return (
     <DefaultLayout>
@@ -45,6 +50,7 @@ export default function ConversationPage() {
 
       <div className="h-full rounded-lg overflow-y-auto scrollbar-thin">
         <ConversationLog logs={logs}/>
+        <div ref={end}></div>
       </div>
 
       <div className="w-full grid grid-cols-[1fr_auto] gap-2">
