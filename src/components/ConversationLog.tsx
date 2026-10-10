@@ -32,7 +32,7 @@ export function ConversationLog({ logs }: MessageLogProps) {
             </div>
 
             <div className={`flex items-center gap-1 mt-1 text-xs text-neutral-400 ${log.self ? "text-right flex-row-reverse" : "text-left"}`}>
-              <Timestamp timestamp={log.timestamp} />
+              { log.timestamp ? <Timestamp timestamp={log.timestamp} /> : "Sending" }
               {(() => {
                 if (log.self) {
                   switch(log.state) {

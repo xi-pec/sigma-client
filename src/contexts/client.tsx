@@ -62,8 +62,6 @@ function ClientProvider({ children }: ClientProviderProps) {
 	// }, [])
 
 	function log(peer: string, id: string, self: boolean, message: string) {
-		const timestamp = Date.now()
-
 		setLogs((prev) => {
 			return {
 				...prev, // keep existing message log entries
@@ -72,10 +70,10 @@ function ClientProvider({ children }: ClientProviderProps) {
 					
           // append new message data
           [id]: self ? { 
-            self, message, timestamp,
+            self, message,
             state: SentMessageLogState.SENDING
           } as SentMessageLog : {
-            self, message, timestamp,
+            self, message,
             verified: false
           } as ReceivedMessageLog
 				}
@@ -126,6 +124,27 @@ function ClientProvider({ children }: ClientProviderProps) {
 		})
 	}
 
+  function timestamp(peer: string, id: string, timestamp: number) {
+    setLogs((prev) => {
+      const messages = prev[peer]
+      if (!messages) return prev
+      
+      const message = messages[id]
+      if (!message) return prev
+
+			return {
+				...prev, // keep existing message log entries
+				[peer]: { // overwrite peer logs
+					...(prev[peer] || {}), // keep existing message log entries of peer
+					[id]: { 
+						...message,
+						timestamp
+					} // append new message data
+				}
+			}
+		})
+  }
+
 	function addConnection(connection: DataConnection) {
 		setConnections((prev) => {
 			const next = new Map(prev)
@@ -173,6 +192,7 @@ function ClientProvider({ children }: ClientProviderProps) {
 
       if (packet instanceof SMSAcknowledgementPacket) {
         mark(connection.peer, packet.id, SentMessageLogState.DELIVERED)
+        timestamp(connection.peer, packet.id, packet.timestamp)
       } else if (packet instanceof SMSMessagePacket) {
         const concatenation = packet.elements.find(e => e.identifier == 0x00 || e.identifier == 0x08)
 
@@ -223,8 +243,10 @@ function ClientProvider({ children }: ClientProviderProps) {
           }
         }
 
-        const acknowledgement = new SMSAcknowledgementPacket(message.id).serialize()
-        connection.send(acknowledgement)
+        const acknowledgement = new SMSAcknowledgementPacket(message.id)
+        timestamp(connection.peer, message.id, acknowledgement.timestamp)
+
+        connection.send(acknowledgement.serialize())
       } else if (packet instanceof SMSKeyPacket) {
         const keys: Keys = {
           ECDSA: packet.ecdsa,

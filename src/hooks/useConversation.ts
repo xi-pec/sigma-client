@@ -5,7 +5,7 @@ import { useClient } from "@/hooks/useClient"
 export type BaseMessageLog<S extends boolean = boolean> = {
   self: S
   message: string,
-  timestamp: number
+  timestamp?: number
 }
 
 export enum SentMessageLogState {
