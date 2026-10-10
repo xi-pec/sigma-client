@@ -67,7 +67,7 @@ export default function ConversationsListPage() {
                 <Avatar.Fallback><Person /></Avatar.Fallback> 
               </Avatar>
 
-              <div>
+              <div className="min-w-0">
                 <span>{id}</span>
 
                 <br />
@@ -79,15 +79,10 @@ export default function ConversationsListPage() {
                     return <span className="text-sm text-muted">No messages.</span>;
                   }
 
-                  const msg =
-                    log.message.length > 48
-                      ? `${log.message.substring(0, 45).trim()}...`
-                      : log.message;
-
                   return (
                     <div className="flex items-center justify-between text-muted text-sm gap-2">
                       <span className="truncate">
-                        {log.self ? "You" : "Them"}: {msg}
+                        {log.self ? "You" : "Them"}: {log.message}
                       </span>
                       <Timestamp className="shrink-0" timestamp={log.timestamp!} />
                     </div>
