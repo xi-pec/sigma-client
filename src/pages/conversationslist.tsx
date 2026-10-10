@@ -20,7 +20,7 @@ import { useClient } from "@/hooks/useClient"
 import { MessageLog } from "@/hooks/useConversation";
 import { Timestamp } from "@/components/Timestamp";
 
-export default function IndexPage() {
+export default function ConversationsListPage() {
   const client = useClient()
   const navigate = useNavigate()
 
@@ -31,7 +31,7 @@ export default function IndexPage() {
 
     let recent = null
     for (const entry of entries) {
-      if (!recent || entry[1].timestamp > recent[1].timestamp) 
+      if (!recent || !entry[1].timestamp || !recent[1].timestamp || entry[1].timestamp > recent[1].timestamp) 
         recent = entry
     }
 
@@ -62,7 +62,7 @@ export default function IndexPage() {
       <div className="w-full">
         {
           Object.entries(client.logs).map(([id, logs]) => (
-            <div key={id} className="p-2 rounded-xl grid grid-cols-[auto_1fr] gap-4 hover:bg-default" onClick={() => navigate(`/conversation/${id}`)}>
+            <div key={id} className="p-2 rounded-xl grid grid-cols-[auto_1fr] gap-4 hover:bg-default" onClick={() => navigate(`/conversations/${id}`)}>
               <Avatar size="lg">
                 <Avatar.Fallback><Person /></Avatar.Fallback> 
               </Avatar>
@@ -89,7 +89,7 @@ export default function IndexPage() {
                       <span className="truncate">
                         {log.self ? "You" : "Them"}: {msg}
                       </span>
-                      <Timestamp className="shrink-0" timestamp={log.timestamp} />
+                      <Timestamp className="shrink-0" timestamp={log.timestamp!} />
                     </div>
                   );
                 })()}
