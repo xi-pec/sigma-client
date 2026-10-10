@@ -26,7 +26,7 @@ export function ConversationLog({ logs }: MessageLogProps) {
                 {log.self ? "You" : "Them"}
               </span>
 
-              <span className="px-4 text-white block break-words">
+              <span className="px-4 text-sm text-white block break-words">
                 {log.message}
               </span>
             </div>

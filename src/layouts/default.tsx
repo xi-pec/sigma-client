@@ -9,7 +9,7 @@ export default function DefaultLayout({
     <div className="relative flex flex-col h-screen">
       {/* <Navbar /> */}
       <main className="container mx-auto max-w-7xl flex-grow h-full grid flex flex-col items-center justify-center">
-        <div className="h-full aspect-[9/20] flex flex-col gap-4 overflow-hidden min-w-0 p-6">
+        <div className="h-full aspect-[1/2] flex flex-col gap-4 overflow-hidden min-w-0 p-6">
           {children}
         </div>
       </main>
