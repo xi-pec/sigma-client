@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, createContext, ReactNode } from "react";
 import  { DataConnection, Peer } from "peerjs"
-import { v4 } from "uuid";
 import {
+  SMSPacket, SMSAcknowledgementPacket, SMSMessagePacket,
 	SignatureAlgorithm, SignatureAlgorithmKey,
 	SignatureAlgorithmSecretKey, SignatureAlgorithmSharedKey,
 	keygen,
+  SMSKeyPacket,
 } from "sigma-protocol"
 
 import { MessageLog, ReceivedMessageLog, SentMessageLog, SentMessageLogState } from "@/hooks/useConversation"
@@ -14,15 +15,19 @@ export type KeyPair<A extends SignatureAlgorithm> = {
 	shared: SignatureAlgorithmSharedKey<A>
 }
 
-export type Keys = { 
+export type KeyPairs = { 
 	ECDSA: KeyPair<SignatureAlgorithm.ECDSA>
 	Ed25519: KeyPair<SignatureAlgorithm.ED25519>
+}
+
+export type Keys = {
+  ECDSA: SignatureAlgorithmSharedKey<SignatureAlgorithm.ECDSA>
+  Ed25519: SignatureAlgorithmSharedKey<SignatureAlgorithm.ED25519>
 }
 
 const ClientContext = createContext<{
 	self: Peer | null
 	id: string | null
-	keys: Keys | null
 	connections: Map<string, DataConnection>
 	logs: Record<string, Record<string, MessageLog>>
 	connect: (peer: string) => DataConnection | null
@@ -33,23 +38,9 @@ interface ClientProviderProps {
 	children: ReactNode
 }
 
-export type IncomingData = IncomingAcknowledgementData | IncomingMessageData;
-
-export type IncomingAcknowledgementData = {
-  type: "acknowledgement",
-  id: string
-}
-
-export type IncomingMessageData = {
-	type: "message",
-	id: string,
-	message: string
-}
-
 function ClientProvider({ children }: ClientProviderProps) {
 	const [self, setSelf] = useState<Peer | null>(null)
 	const [id, setId] = useState<string | null>(null)
-	const [keys, setKeys] = useState<Keys | null>(null)
 	const [connections, setConnections] = useState<Map<string, DataConnection>>(new Map())
 	const [logs, setLogs] = useState<Record<string, Record<string, MessageLog>>>(() => {
 		try {
@@ -59,7 +50,11 @@ function ClientProvider({ children }: ClientProviderProps) {
 	})
 
 	const ref = useRef<Peer | null>(null)
+  const keypair = useRef<KeyPairs | null>(null)
+  const keys = useRef(new Map<string, Keys>())
+  const assembly = useRef(new Map<string, SMSMessagePacket[]>)
 	const [retries, setRetries] = useState(0)
+
 
 	// if needed for UI in future
 	// const retry = useCallback(() => {
@@ -116,7 +111,7 @@ function ClientProvider({ children }: ClientProviderProps) {
       if (!messages) return prev
 
       const message = messages[id]
-      if (!message || message.self) return prev
+      if (!message || message.self || message.verified) return prev
 
 			return {
 				...prev, // keep existing message log entries
@@ -147,9 +142,21 @@ function ClientProvider({ children }: ClientProviderProps) {
 		})
 	}
 
+  function addKeys(id: string, shared: Keys) {
+    keys.current.set(id, shared)
+  }
+
 	const handleConnection = useCallback((connection: DataConnection) => {
 		connection.on("open", () => {
 			addConnection(connection)
+
+      const ecdsa = keypair.current?.ECDSA.shared
+      const ed25519 = keypair.current?.Ed25519.shared
+
+      if (ecdsa && ed25519) {
+        const packet = new SMSKeyPacket(ecdsa, ed25519).serialize()
+        connection.send(packet)
+      }
 		})
 		
 		connection.on("error", () => {
@@ -161,23 +168,70 @@ function ClientProvider({ children }: ClientProviderProps) {
 		})
 		
 		connection.on("data", (raw: unknown) => {
-			const data = raw as IncomingData
+			if (!(raw instanceof Uint8Array || raw instanceof ArrayBuffer)) return
+      const packet = SMSPacket.deserialize(new Uint8Array(raw))
 
-      switch(data.type) {
-        case "acknowledgement":
-          mark(connection.peer, data.id, SentMessageLogState.DELIVERED)
-          break
+      if (packet instanceof SMSAcknowledgementPacket) {
+        mark(connection.peer, packet.id, SentMessageLogState.DELIVERED)
+      } else if (packet instanceof SMSMessagePacket) {
+        const concatenation = packet.elements.find(e => e.identifier == 0x00 || e.identifier == 0x08)
 
-        case "message":
-          log(connection.peer, data.id, false, data.message)
+        let message = packet
 
-          const acknowledgement: IncomingAcknowledgementData = {
-            type: "acknowledgement",
-            id: data.id
+        // handle concatenation
+        if (concatenation) {
+          const extended = concatenation.identifier == 0x08
+          const offset = extended ? 2 : 1
+          const reference = extended ? 
+            (concatenation.value[0] << 8) | concatenation.value[1] 
+            : concatenation.value[0];
+          
+          const total = concatenation.value[offset]
+          const index = concatenation.value[offset + 1]
+          const key = `${connection.peer}_${reference}`
+
+          const map = assembly.current
+          if (!map.has(key)) map.set(key, [])
+
+          const parts = map.get(key)!
+          parts[index - 1] = packet
+
+          const count = parts.filter(Boolean).length
+          if (count < total) return
+
+          // parts are complete
+          message = SMSMessagePacket.concatenate(parts)
+          map.delete(key)
+        }
+
+        log(connection.peer, message.id, false, message.decode())
+
+        const sigma = message.elements.find(e => e.identifier == 0x43)
+
+        // handle sigma
+        if (sigma) {
+          const shared = keys.current.get(connection.peer)
+
+          const key = {
+            [SignatureAlgorithm.ECDSA]: shared?.ECDSA,
+            [SignatureAlgorithm.ED25519]: shared?.Ed25519
+          }[sigma.value[0]]
+
+          if (key) {
+            const verified = message.verify(key)
+            verified && verify(connection.peer, message.id, true)
           }
+        }
 
-          connection.send(acknowledgement)
-          break
+        const acknowledgement = new SMSAcknowledgementPacket(message.id).serialize()
+        connection.send(acknowledgement)
+      } else if (packet instanceof SMSKeyPacket) {
+        const keys: Keys = {
+          ECDSA: packet.ecdsa,
+          Ed25519: packet.ed25519
+        }
+
+        addKeys(connection.peer, keys)
       }
     })
 	}, [])
@@ -204,21 +258,22 @@ function ClientProvider({ children }: ClientProviderProps) {
 
 		let connection = connect(peer)
 
-		const id = v4()
-		const payload: IncomingMessageData = {
-			type: "message",
-			id, message
-		}
+    const master = new SMSMessagePacket(message)
+    keypair.current && master.sign(SignatureAlgorithm.ECDSA, keypair.current.ECDSA.secret)
+
+    const packets = master.split()
 
     function _send() {
-			log(peer, id, true, message)
-      const success = connection?.send(payload)
+      log(peer, master.id, true, message)
 
-      const handleSuccess = () => mark(peer, id, SentMessageLogState.SENT)
+      for (const packet of packets) {
+        const payload = packet.serialize()
+        connection?.send(payload)
+      }
 
-      if (success instanceof Promise) success.then(handleSuccess)
-      else queueMicrotask(handleSuccess)
+      mark(peer, master.id, SentMessageLogState.SENT)
     }
+
 
 		if (connection?.open) _send()
 		else connection?.once("open", _send)
@@ -228,9 +283,9 @@ function ClientProvider({ children }: ClientProviderProps) {
 		function generate() {
 			const ECDSA = keygen(SignatureAlgorithm.ECDSA) as KeyPair<SignatureAlgorithm.ECDSA>
 			const Ed25519 = keygen(SignatureAlgorithm.ED25519) as KeyPair<SignatureAlgorithm.ED25519>
-			const keys: Keys = { ECDSA, Ed25519 }
+			const keys: KeyPairs = { ECDSA, Ed25519 }
 
-			setKeys(keys)
+			keypair.current = keys
 			
 			const serialized = JSON.stringify({
 				ecdsa: {
@@ -260,7 +315,7 @@ function ClientProvider({ children }: ClientProviderProps) {
 					!deserialized.ecdsa.secret || !deserialized.ecdsa.shared ||
 					!deserialized.ed25519.secret || !deserialized.ed25519.shared
 				) { generate() } else {
-					const keys: Keys = {
+					const keys: KeyPairs = {
 						ECDSA: {
 							secret: SignatureAlgorithmKey.fromHex(deserialized.ecdsa.secret, "secret", SignatureAlgorithm.ECDSA),
 							shared: SignatureAlgorithmKey.fromHex(deserialized.ecdsa.shared, "shared", SignatureAlgorithm.ECDSA)
@@ -272,11 +327,24 @@ function ClientProvider({ children }: ClientProviderProps) {
 						},
 					}
 
-					setKeys(keys)
+					keypair.current = keys
 				}
 			} catch { generate() }
 		} else generate()
-	}, [])
+	}, [id])
+
+  useEffect(() => {
+    const ecdsa = keypair.current?.ECDSA.shared
+    const ed25519 = keypair.current?.Ed25519.shared
+
+    if (ecdsa && ed25519) {
+      const packet = new SMSKeyPacket(ecdsa, ed25519).serialize()
+
+      for (const [_, connection] of connections) {
+        connection.send(packet)
+      }
+    }
+  }, [keypair])
 
 	useEffect(() => {
 		if (ref.current && !ref.current.destroyed) {
@@ -361,7 +429,7 @@ function ClientProvider({ children }: ClientProviderProps) {
 		localStorage.setItem("chat_logs", JSON.stringify(logs))
 	}, [logs])
 
-	return <ClientContext.Provider value={{self, id, keys, connections, logs, connect, send}}>{children}</ClientContext.Provider>
+	return <ClientContext.Provider value={{self, id, connections, logs, connect, send}}>{children}</ClientContext.Provider>
 }
 
 export { ClientContext, ClientProvider }
