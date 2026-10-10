@@ -17,7 +17,7 @@ import { useNavigate } from "react-router-dom";
 import DefaultLayout from "@/layouts/default";
 
 import { useClient } from "@/hooks/useClient"
-import { MessageLog } from "@/contexts/client";
+import { MessageLog } from "@/hooks/useConversation";
 import { Timestamp } from "@/components/Timestamp";
 
 export default function IndexPage() {

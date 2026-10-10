@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState, createContext, ReactNode } from "react";
 import  { DataConnection, Peer } from "peerjs"
 import { v4 } from "uuid";
-
 import {
 	SignatureAlgorithm, SignatureAlgorithmKey,
 	SignatureAlgorithmSecretKey, SignatureAlgorithmSharedKey,
 	keygen,
 } from "sigma-protocol"
+
+import { MessageLog, ReceivedMessageLog, SentMessageLog, SentMessageLogState } from "@/hooks/useConversation"
 
 export type KeyPair<A extends SignatureAlgorithm> = { 
 	secret: SignatureAlgorithmSecretKey<A>,
@@ -32,13 +33,12 @@ interface ClientProviderProps {
 	children: ReactNode
 }
 
-export interface MessageLog { 
-	self: boolean,
-	message: string,
-	timestamp: number
-}
+export type IncomingData = IncomingAcknowledgementData | IncomingMessageData;
 
-export type IncomingData = IncomingMessageData;
+export type IncomingAcknowledgementData = {
+  type: "acknowledgement",
+  id: string
+}
 
 export type IncomingMessageData = {
 	type: "message",
@@ -74,7 +74,58 @@ function ClientProvider({ children }: ClientProviderProps) {
 				...prev, // keep existing message log entries
 				[peer]: { // overwrite peer logs
 					...(prev[peer] || {}), // keep existing message log entries of peer
-					[id]: { self, message, timestamp } // append new message data
+					
+          // append new message data
+          [id]: self ? { 
+            self, message, timestamp,
+            state: SentMessageLogState.SENDING
+          } as SentMessageLog : {
+            self, message, timestamp,
+            verified: false
+          } as ReceivedMessageLog
+				}
+			}
+		})
+	}
+
+
+	function mark(peer: string, id: string, state: SentMessageLogState) {
+		setLogs((prev) => {
+      const messages = prev[peer]
+      if (!messages) return prev
+      
+      const message = messages[id]
+      if (!message || !message.self || message.state >= state) return prev
+
+			return {
+				...prev, // keep existing message log entries
+				[peer]: { // overwrite peer logs
+					...(prev[peer] || {}), // keep existing message log entries of peer
+					[id]: { 
+						...message,
+						state
+					} as SentMessageLog // append new message data
+				}
+			}
+		})
+	}
+
+	function verify(peer: string, id: string, verified: boolean) {
+		setLogs((prev) => {
+      const messages = prev[peer]
+      if (!messages) return prev
+
+      const message = messages[id]
+      if (!message || message.self) return prev
+
+			return {
+				...prev, // keep existing message log entries
+				[peer]: { // overwrite peer logs
+					...(prev[peer] || {}), // keep existing message log entries of peer
+					[id]: { 
+						...message,
+						verified
+					} as ReceivedMessageLog // append new message data
 				}
 			}
 		})
@@ -112,10 +163,23 @@ function ClientProvider({ children }: ClientProviderProps) {
 		connection.on("data", (raw: unknown) => {
 			const data = raw as IncomingData
 
-			if (data.type == "message") {
-				log(connection.peer, data.id, false, data.message)
-			}
-		})
+      switch(data.type) {
+        case "acknowledgement":
+          mark(connection.peer, data.id, SentMessageLogState.DELIVERED)
+          break
+
+        case "message":
+          log(connection.peer, data.id, false, data.message)
+
+          const acknowledgement: IncomingAcknowledgementData = {
+            type: "acknowledgement",
+            id: data.id
+          }
+
+          connection.send(acknowledgement)
+          break
+      }
+    })
 	}, [])
 	
 	function connect(peer: string): DataConnection | null {
@@ -129,13 +193,15 @@ function ClientProvider({ children }: ClientProviderProps) {
 		handleConnection(connection)
 
 		setLogs((prev) => {
-			return {...prev, [peer]: logs[peer] ?? {}}
+			return {...prev, [peer]: prev[peer] ?? {}}
 		})
 
 		return connection
 	}
 
 	function send(peer: string, message: string) {
+    if (!message) return
+
 		let connection = connect(peer)
 
 		const id = v4()
@@ -144,15 +210,18 @@ function ClientProvider({ children }: ClientProviderProps) {
 			id, message
 		}
 
-		if (connection?.open) {
-			connection.send(payload)
+    function _send() {
 			log(peer, id, true, message)
-		} else {
-			connection?.once("open", () => {
-				connection.send(payload)
-				log(peer, id, true, message)
-			})
-		}
+      const success = connection?.send(payload)
+
+      const handleSuccess = () => mark(peer, id, SentMessageLogState.SENT)
+
+      if (success instanceof Promise) success.then(handleSuccess)
+      else queueMicrotask(handleSuccess)
+    }
+
+		if (connection?.open) _send()
+		else connection?.once("open", _send)
 	}
 
 	useEffect(() => {

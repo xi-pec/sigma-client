@@ -2,11 +2,29 @@ import { useEffect, useState } from "react"
 
 import { useClient } from "@/hooks/useClient"
 
-export interface MessageLog { 
-  self: boolean,
+export type BaseMessageLog<S extends boolean = boolean> = {
+  self: S
   message: string,
   timestamp: number
 }
+
+export enum SentMessageLogState {
+  SENDING = 0,
+  SENT = 1,
+  DELIVERED = 2
+}
+
+export type SentMessageLog = BaseMessageLog<true> & {
+  self: true
+  state: SentMessageLogState
+}
+
+export type ReceivedMessageLog = BaseMessageLog<false> & {
+  self: false
+  verified: boolean
+}
+
+export type MessageLog = SentMessageLog | ReceivedMessageLog
 
 export type IncomingData = IncomingMessageData;
 
