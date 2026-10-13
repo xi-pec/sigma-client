@@ -378,7 +378,7 @@ function ClientProvider({ children }: ClientProviderProps) {
 		let saved = localStorage.getItem("id") ?? ""
 
 		let instance = new Peer(saved, {
-			host: "localhost",
+			host: window.location.hostname,
 			port: 9000,
 			path: "/peer/",
 			debug: 3
