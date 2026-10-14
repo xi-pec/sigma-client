@@ -30,6 +30,8 @@ const ClientContext = createContext<{
 	id: string | null
 	connections: Map<string, DataConnection>
 	logs: Record<string, Record<string, MessageLog>>
+  seen: Record<string, string>
+  read: (peer: string, id: string) => void
 	connect: (peer: string) => DataConnection | null
 	send: (peer: string, message: string) => void
 } | null>(null)
@@ -48,13 +50,17 @@ function ClientProvider({ children }: ClientProviderProps) {
 			return saved ? JSON.parse(saved) : {}
 		} catch { return {} }
 	})
-
+  const [seen, setSeen] = useState<Record<string, string>>((() => {
+		try {
+			const saved = localStorage.getItem("seen")
+			return saved ? JSON.parse(saved) : {}
+		} catch { return {} }
+	}))
 	const ref = useRef<Peer | null>(null)
-  const keypair = useRef<KeyPairs | null>(null)
-  const keys = useRef(new Map<string, Keys>())
-  const assembly = useRef(new Map<string, SMSMessagePacket[]>)
+	const keypair = useRef<KeyPairs | null>(null)
+	const keys = useRef(new Map<string, Keys>())
+	const assembly = useRef(new Map<string, SMSMessagePacket[]>)
 	const [retries, setRetries] = useState(0)
-
 
 	// if needed for UI in future
 	// const retry = useCallback(() => {
@@ -81,7 +87,6 @@ function ClientProvider({ children }: ClientProviderProps) {
 		})
 	}
 
-
 	function mark(peer: string, id: string, state: SentMessageLogState) {
 		setLogs((prev) => {
       const messages = prev[peer]
@@ -102,6 +107,15 @@ function ClientProvider({ children }: ClientProviderProps) {
 			}
 		})
 	}
+
+  function read(peer: string, id: string) {
+    setSeen((prev) => {
+      return {
+        ...prev,
+        [peer]: id
+      }
+    })
+  }
 
 	function verify(peer: string, id: string, verified: boolean) {
 		setLogs((prev) => {
@@ -124,26 +138,26 @@ function ClientProvider({ children }: ClientProviderProps) {
 		})
 	}
 
-  function timestamp(peer: string, id: string, timestamp: number) {
-    setLogs((prev) => {
-      const messages = prev[peer]
-      if (!messages) return prev
-      
-      const message = messages[id]
-      if (!message) return prev
+	function timestamp(peer: string, id: string, timestamp: number) {
+		setLogs((prev) => {
+		const messages = prev[peer]
+		if (!messages) return prev
+		
+		const message = messages[id]
+		if (!message) return prev
 
-			return {
-				...prev, // keep existing message log entries
-				[peer]: { // overwrite peer logs
-					...(prev[peer] || {}), // keep existing message log entries of peer
-					[id]: { 
-						...message,
-						timestamp
-					} // append new message data
+				return {
+					...prev, // keep existing message log entries
+					[peer]: { // overwrite peer logs
+						...(prev[peer] || {}), // keep existing message log entries of peer
+						[id]: { 
+							...message,
+							timestamp
+						} // append new message data
+					}
 				}
-			}
-		})
-  }
+			})
+	}
 
 	function addConnection(connection: DataConnection) {
 		setConnections((prev) => {
@@ -161,9 +175,9 @@ function ClientProvider({ children }: ClientProviderProps) {
 		})
 	}
 
-  function addKeys(id: string, shared: Keys) {
-    keys.current.set(id, shared)
-  }
+	function addKeys(id: string, shared: Keys) {
+		keys.current.set(id, shared)
+	}
 
 	const handleConnection = useCallback((connection: DataConnection) => {
 		connection.on("open", () => {
@@ -451,7 +465,11 @@ function ClientProvider({ children }: ClientProviderProps) {
 		localStorage.setItem("chat_logs", JSON.stringify(logs))
 	}, [logs])
 
-	return <ClientContext.Provider value={{self, id, connections, logs, connect, send}}>{children}</ClientContext.Provider>
+  useEffect(() => {
+    localStorage.setItem("seen", JSON.stringify(seen))
+  }, [seen])
+
+	return <ClientContext.Provider value={{self, id, connections, logs, seen, read, connect, send}}>{children}</ClientContext.Provider>
 }
 
 export { ClientContext, ClientProvider }

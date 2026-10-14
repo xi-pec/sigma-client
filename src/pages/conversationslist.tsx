@@ -15,28 +15,15 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom";
 
 import DefaultLayout from "@/layouts/default";
-
 import { useClient } from "@/hooks/useClient"
-import { MessageLog } from "@/hooks/useConversation";
 import { Timestamp } from "@/components/Timestamp";
+import { getLatestMessage } from "@/utils/messages";
 
 export default function ConversationsListPage() {
   const client = useClient()
   const navigate = useNavigate()
 
   const [peer, setPeer] = useState<string>("")
-
-  function getLatestMessage(logs: Record<string, MessageLog>): MessageLog | null {
-    const entries = Object.entries(logs)
-
-    let recent = null
-    for (const entry of entries) {
-      if (!recent || !entry[1].timestamp || !recent[1].timestamp || entry[1].timestamp > recent[1].timestamp) 
-        recent = entry
-    }
-
-    return recent ? recent[1] : null
-  }
 
   return (
     <DefaultLayout>
@@ -81,10 +68,10 @@ export default function ConversationsListPage() {
 
                   return (
                     <div className="pr-2 flex items-center justify-between text-muted text-sm gap-2">
-                      <span className="truncate">
-                        {log.self ? "You" : "Them"}: {log.message}
+                      <span className={`truncate ${client.seen[id] != log[0] ? "font-semibold text-white" : ""}`}>
+                        {log[1].self ? "You" : "Them"}: {log[1].message}
                       </span>
-                      <Timestamp className="shrink-0" timestamp={log.timestamp!} />
+                      <Timestamp className="shrink-0" timestamp={log[1].timestamp!} />
                     </div>
                   );
                 })()}

@@ -19,19 +19,51 @@ import DefaultLayout from "@/layouts/default";
 import { ConversationLog } from "@/components/ConversationLog";
 
 import { useConnection } from "@/hooks/useConversation";
+import { getLatestMessage } from "@/utils/messages";
 
 export default function ConversationPage() {
   const { peer } = useParams()
   const navigate = useNavigate()
 
-  const { connected, logs, reconnect, send } = useConnection({ id: peer ?? "" })
+  const connection = useConnection({ id: peer ?? "" })
 
   const [message, setMessage] = useState<string>("")
+  const [read, setRead] = useState<boolean>(false)
+
   const end = useRef<HTMLDivElement | null>(null)
+  const list = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "instant" })
+    if (!end.current) return
+
+    end.current.scrollIntoView({ behavior: "instant" })
+    
+    if (!list.current) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => { setRead(entry.isIntersecting) },
+      { root: list.current, threshold: 0.5 }
+    )
+
+    observer.observe(end.current)
+    return () => { observer.disconnect() }
   }, [])
+
+  useEffect(() => {
+    
+  }, [read, connection.logs])
+
+  useEffect(() => {
+    if (end.current && read) {
+      end.current.scrollIntoView({ behavior: "instant" })
+    }
+
+    const latest = getLatestMessage(connection.logs)
+    
+    if (read && latest) {
+      connection.read(latest[0])
+    }
+  }, [connection.logs, read])
 
   return (
     <DefaultLayout>
@@ -48,32 +80,32 @@ export default function ConversationPage() {
         <span className="text-lg">{peer}</span>
       </div>
 
-      <div className="h-full rounded-lg overflow-y-auto scrollbar-thin">
-        <ConversationLog logs={logs}/>
-        <div ref={end}></div>
+      <div ref={list} className="h-full rounded-lg overflow-y-auto scrollbar-thin">
+        <ConversationLog logs={connection.logs} seen={connection.seen}/>
+        <div ref={end} className="h-px"></div>
       </div>
 
       <div className="w-full grid grid-cols-[1fr_auto] gap-2">
         <Input 
           className="indent-[.5rem]" 
           fullWidth variant="secondary" 
-          placeholder={connected ? "Aa" : `${peer} is unavailable.`} 
-          value={connected ? message : `${peer} is unavailable.`} 
+          placeholder={connection.connected ? "Aa" : `${peer} is unavailable.`} 
+          value={connection.connected ? message : `${peer} is unavailable.`} 
           onChange={(e) => setMessage(e.target.value)}
-          disabled={!connected}
+          disabled={!connection.connected}
         />
 
         <Button 
           isIconOnly 
           onPress={() => {
-            if (connected) {
-              send(message)
+            if (connection.connected) {
+              connection.send(message)
               setMessage("")
-            } else reconnect()
+            } else connection.reconnect()
           }}
         >
           {
-            connected ? <PaperPlane /> : <ArrowRotateLeft />
+            connection.connected ? <PaperPlane /> : <ArrowRotateLeft />
           }
         </Button>
       </div>

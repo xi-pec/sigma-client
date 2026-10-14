@@ -56,6 +56,8 @@ function useConnection({ id }: UseConnectionProps) {
   return {
     connected,
     logs: client.logs[id] ?? {},
+    seen: client.seen[id] ?? null,
+    read: (mid: string) => client.read(id, mid),
     reconnect: () => client.connect(id),
     send: (message: string) => client.send(id, message)
   }

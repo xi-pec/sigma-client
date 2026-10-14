@@ -1,4 +1,8 @@
 import {
+  Separator
+} from "@heroui/react"
+
+import {
   Check,
   CheckDouble,
   ShieldCheck,
@@ -10,16 +14,17 @@ import { Timestamp } from "@/components/Timestamp"
 
 export interface MessageLogProps {
   logs: Record<string, MessageLog>
+  seen: string | null
 }
 
-export function ConversationLog({ logs }: MessageLogProps) {
+export function ConversationLog({ logs, seen }: MessageLogProps) {
   const entries = Object.entries(logs)
   
   return <div className="mx-2 flex flex-col mb-2">
     {
       entries.length > 0 ?
-      entries.map(([_, log]) => {
-        return (
+      entries.map(([id, log]) => {
+        return <>
           <div key={log.timestamp} className={`flex flex-col mb-2 ${log.self ? "items-end" : "items-start"}`}>
             <div className={`p-2.5 rounded-lg max-w-[80%] w-fit ${log.self ? "bg-blue-600" : "bg-neutral-800"}`}>
               <span className={`px-4 text-xs ${log.self ? "text-blue-100" : "text-neutral-400"} block mb-0.5`}>
@@ -52,7 +57,15 @@ export function ConversationLog({ logs }: MessageLogProps) {
               })()}
             </div>
           </div>
-        )
+          
+          {
+            !log.self && id == seen && entries.at(-1)![0] != seen ? <div className="mt-2 mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+              <Separator className="w-full bg-blue-500" />
+              <span className="text-default-400 text-xs text-blue-500 font-medium">UNREAD</span>
+              <Separator className="w-full bg-blue-500" />
+            </div> : <></>
+          }
+        </>
       })
       :
       <p className="w-full text-center text-muted text-xs">No messages.</p>
