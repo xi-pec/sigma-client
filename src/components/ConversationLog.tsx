@@ -26,17 +26,17 @@ export function ConversationLog({ logs, seen }: MessageLogProps) {
       entries.map(([id, log]) => {
         return <>
           <div key={log.timestamp} className={`flex flex-col mb-2 ${log.self ? "items-end" : "items-start"}`}>
-            <div className={`p-2.5 rounded-lg max-w-[80%] w-fit ${log.self ? "bg-blue-600" : "bg-neutral-800"}`}>
-              <span className={`px-4 text-xs ${log.self ? "text-blue-100" : "text-neutral-400"} block mb-0.5`}>
+            <div className={`p-2.5 rounded-lg max-w-[80%] w-fit ${log.self ? "bg-blue-600" : "bg-zinc-200 dark:bg-zinc-800"}`}>
+              <span className={`px-4 text-xs ${log.self ? "text-blue-100" : "text-zinc-500 dark:text-zinc-400"} block mb-0.5`}>
                 {log.self ? "You" : "Them"}
               </span>
 
-              <span className="px-4 text-sm text-white block break-words">
+              <span className={`px-4 text-sm block break-words ${log.self ? "text-white" : "text-zinc-900 dark:text-zinc-100"}`}>
                 {log.message}
               </span>
             </div>
 
-            <div className={`flex items-center gap-1 mt-1 text-xs text-neutral-400 ${log.self ? "text-right flex-row-reverse" : "text-left"}`}>
+            <div className={`flex items-center gap-1 mt-1 text-xs text-zinc-500 dark:text-zinc-400 ${log.self ? "text-right flex-row-reverse" : "text-left"}`}>
               { log.timestamp ? <Timestamp timestamp={log.timestamp} /> : "Sending" }
               {(() => {
                 if (log.self) {
@@ -49,9 +49,9 @@ export function ConversationLog({ logs, seen }: MessageLogProps) {
                   }
                 } else {
                   if (log.verified) {
-                    return <ShieldCheck />
+                    return <ShieldCheck color="#00d500"/>
                   } else {
-                    return <ShieldExclamation />
+                    return <ShieldExclamation color="#ffa500"/>
                   }
                 }
               })()}

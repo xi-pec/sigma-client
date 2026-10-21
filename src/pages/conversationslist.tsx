@@ -29,12 +29,12 @@ export default function ConversationsListPage() {
     <DefaultLayout>
       <Card className="w-full" variant="transparent">
         <Card.Header>
-          <span className="text-muted text-sm">ID</span>
+          <span className="text-neutral-500 text-sm">ID</span>
           <span>{client.id ?? "..."}</span>
         </Card.Header>
 
         <Card.Content>
-          <span className="text-muted text-sm">CONNECT</span>
+          <span className="text-neutral-500 text-sm">CONNECT</span>
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <Input value={peer} onChange={(e) => setPeer(e.target.value)}/>
             <Button isIconOnly onPress={() => client.connect(peer)}>
@@ -49,7 +49,7 @@ export default function ConversationsListPage() {
       <div className="w-full overflow-y-scroll scrollbar-thin">
         {
           Object.entries(client.logs).map(([id, logs]) => (
-            <div key={id} className="p-2 rounded-xl grid grid-cols-[auto_1fr] gap-4 hover:bg-default" onClick={() => navigate(`/conversations/${id}`)}>
+            <div key={id} className="m-1 p-2 rounded-xl grid grid-cols-[auto_1fr] gap-4 hover:bg-zinc-200 dark:hover:bg-zinc-800 duration-200 ease-in-out" onClick={() => navigate(`/conversations/${id}`)}>
               <Avatar size="lg">
                 <Avatar.Fallback><Person /></Avatar.Fallback> 
               </Avatar>
@@ -63,12 +63,12 @@ export default function ConversationsListPage() {
                   const log = getLatestMessage(logs);
 
                   if (!log) {
-                    return <span className="text-sm text-muted">No messages.</span>;
+                    return <span className="text-sm text-neutral-500">No messages.</span>;
                   }
 
                   return (
-                    <div className="pr-2 flex items-center justify-between text-muted text-sm gap-2">
-                      <span className={`truncate ${client.seen[id] != log[0] ? "font-semibold text-white" : ""}`}>
+                    <div className="pr-2 flex items-center justify-between text-neutral-500 text-sm gap-2">
+                      <span className={`truncate ${client.seen[id] != log[0] ? "font-semibold text-foreground" : ""}`}>
                         {log[1].self ? "You" : "Them"}: {log[1].message}
                       </span>
                       <Timestamp className="shrink-0" timestamp={log[1].timestamp!} />

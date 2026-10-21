@@ -77,10 +77,10 @@ export default function ConversationPage() {
           </Avatar.Fallback>
         </Avatar>
 
-        <span className="text-lg">{peer}</span>
+        <span className="text-lg text-zinc-900 dark:text-zinc-100">{peer}</span>
       </div>
 
-      <div ref={list} className="h-full rounded-lg overflow-y-auto scrollbar-thin">
+      <div ref={list} className="h-full rounded-lg overflow-y-auto scrollbar-thin my-4">
         <ConversationLog logs={connection.logs} seen={connection.seen}/>
         <div ref={end} className="h-px"></div>
       </div>
