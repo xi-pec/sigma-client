@@ -1,50 +1,49 @@
 import { 
   Avatar,
-  Button,
-  Card,
-  Input,
-  Separator,
+  Button
 } from "@heroui/react"
 
 import {
+  Gear,
   Person,
-  PlugConnection,
+  Plus,
 } from "@gravity-ui/icons"
 
-import { useState } from "react"
 import { useNavigate } from "react-router-dom";
 
 import DefaultLayout from "@/layouts/default";
 import { useClient } from "@/hooks/useClient"
 import { Timestamp } from "@/components/Timestamp";
-import { getLatestMessage } from "@/utils/messages";
+import { NewContactModal } from "@/modals/NewContact";
+import { SettingsModal }from "@/modals/Settings";
+import { getLatestMessage, getUnread } from "@/utils/messages";
 
 export default function ConversationsListPage() {
   const client = useClient()
   const navigate = useNavigate()
 
-  const [peer, setPeer] = useState<string>("")
-
   return (
     <DefaultLayout>
-      <Card className="w-full" variant="transparent">
-        <Card.Header>
-          <span className="text-neutral-500 text-sm">ID</span>
-          <span>{client.id ?? "..."}</span>
-        </Card.Header>
+      <div className="grid grid-cols-[1fr_auto]">
+        <div>
+          <h1 className="text-3xl font-bold">Messaging</h1>
+          <h2 className="text-lg font-light text-accent">{getUnread(client.logs, client.seen)} unread</h2>
+        </div>
 
-        <Card.Content>
-          <span className="text-neutral-500 text-sm">CONNECT</span>
-          <div className="grid grid-cols-[1fr_auto] gap-2">
-            <Input value={peer} onChange={(e) => setPeer(e.target.value)}/>
-            <Button isIconOnly onPress={() => client.connect(peer)}>
-              <PlugConnection />
+        <div>
+          <NewContactModal>
+            <Button variant="ghost" isIconOnly={true}>
+              <Plus />
             </Button>
-          </div>
-        </Card.Content>
-      </Card>
-
-      <Separator />
+          </NewContactModal>
+          
+          <SettingsModal>
+            <Button variant="ghost" isIconOnly={true}>
+              <Gear />
+            </Button>
+          </SettingsModal>
+        </div>
+      </div>
 
       <div className="w-full overflow-y-scroll scrollbar-thin">
         {
