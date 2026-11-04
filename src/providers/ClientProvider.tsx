@@ -357,7 +357,7 @@ function ClientProvider({ children }: ClientProviderProps) {
         }
       } catch { generate() }
     } else generate()
-  }, [id])
+  }, [])
 
   useEffect(() => {
     const ecdsa = keypair.current?.ECDSA.shared
@@ -412,13 +412,14 @@ function ClientProvider({ children }: ClientProviderProps) {
 
           setTimeout(() => {
             setRetries((prev) => prev + 1)
-          }, 3000 * (0 + 1))
+          }, 3000 * (retries + 1))
           break;
 
         case "peer-unavailable":
           break;
 
         default:
+          setRetries(0)
           setId(null)
           break;
       }
