@@ -1,36 +1,22 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import  { DataConnection, Peer } from "peerjs"
-import {
-  SMSPacket, SMSAcknowledgementPacket, SMSMessagePacket,
-  SignatureAlgorithm, SignatureAlgorithmKey,
-  SignatureAlgorithmSecretKey, SignatureAlgorithmSharedKey,
-  keygen,
-  SMSKeyPacket,
-} from "sigma-protocol"
-
-export type KeyPair<A extends SignatureAlgorithm> = { 
-  secret: SignatureAlgorithmSecretKey<A>,
-  shared: SignatureAlgorithmSharedKey<A>
-}
-
-export type KeyPairs = { 
-  ECDSA: KeyPair<SignatureAlgorithm.ECDSA>
-  Ed25519: KeyPair<SignatureAlgorithm.ED25519>
-}
-
-export type Keys = {
-  ECDSA: SignatureAlgorithmSharedKey<SignatureAlgorithm.ECDSA>
-  Ed25519: SignatureAlgorithmSharedKey<SignatureAlgorithm.ED25519>
-}
 
 import { MessageLog, ReceivedMessageLog, SentMessageLog, SentMessageLogState } from "@/hooks/useConversation"
+import { useSIGMA } from "@/hooks/useSIGMA";
 import { ClientContext } from "@/contexts/ClientContext";
+import { Keys } from "@/providers/SIGMAProvider";
+import {
+  SMSPacket, SMSAcknowledgementPacket, SMSMessagePacket,
+  SignatureAlgorithm, SMSKeyPacket,
+} from "sigma-protocol"
 
 interface ClientProviderProps {
   children: ReactNode
 }
 
 function ClientProvider({ children }: ClientProviderProps) {
+  const sigma = useSIGMA()
+
   const [self, setSelf] = useState<Peer | null>(null)
   const [id, setId] = useState<string | null>(null)
   const [connections, setConnections] = useState<Map<string, DataConnection>>(new Map())
@@ -47,8 +33,6 @@ function ClientProvider({ children }: ClientProviderProps) {
     } catch { return {} }
   }))
   const ref = useRef<Peer | null>(null)
-  const keypair = useRef<KeyPairs | null>(null)
-  const keys = useRef(new Map<string, Keys>())
   const assembly = useRef(new Map<string, SMSMessagePacket[]>)
   const [retries, setRetries] = useState(0)
 
@@ -165,16 +149,12 @@ function ClientProvider({ children }: ClientProviderProps) {
     })
   }
 
-  function addKeys(id: string, shared: Keys) {
-    keys.current.set(id, shared)
-  }
-
   const handleConnection = useCallback((connection: DataConnection) => {
     connection.on("open", () => {
       addConnection(connection)
 
-      const ecdsa = keypair.current?.ECDSA.shared
-      const ed25519 = keypair.current?.Ed25519.shared
+      const ecdsa = sigma.keypair.current?.ECDSA.shared
+      const ed25519 = sigma.keypair.current?.Ed25519.shared
 
       if (ecdsa && ed25519) {
         const packet = new SMSKeyPacket(ecdsa, ed25519).serialize()
@@ -230,16 +210,18 @@ function ClientProvider({ children }: ClientProviderProps) {
 
         log(connection.peer, message.id, false, message.decode())
 
-        const sigma = message.elements.find(e => e.identifier == 0x43)
+        const signature = message.elements.find(e => e.identifier == 0x43)
 
         // handle sigma
-        if (sigma) {
-          const shared = keys.current.get(connection.peer)
+        console.log(`has sig: ${Boolean(signature)}`)
+        if (signature) {
+          const shared = sigma.keys.current.get(connection.peer)
+          console.log(`keys: ${Boolean(shared)}`)
 
           const key = {
             [SignatureAlgorithm.ECDSA]: shared?.ECDSA,
             [SignatureAlgorithm.ED25519]: shared?.Ed25519
-          }[sigma.value[0]]
+          }[signature.value[0]]
 
           if (key) {
             const verified = message.verify(key)
@@ -257,7 +239,7 @@ function ClientProvider({ children }: ClientProviderProps) {
           Ed25519: packet.ed25519
         }
 
-        addKeys(connection.peer, keys)
+        sigma.register(connection.peer, keys)
       }
     })
   }, [])
@@ -279,13 +261,31 @@ function ClientProvider({ children }: ClientProviderProps) {
     return connection
   }
 
-  function send(peer: string, message: string) {
+  function send(peer: string, message: string, signature?: Uint8Array) {
     if (!message) return
 
     let connection = connect(peer)
 
     const master = new SMSMessagePacket(message)
-    keypair.current && master.sign(SignatureAlgorithm.ECDSA, keypair.current.ECDSA.secret)
+
+    if (sigma.enabled && sigma.algorithm) {
+      let algorithm = {
+        "ecdsa": SignatureAlgorithm.ECDSA,
+        "ed25519": SignatureAlgorithm.ED25519
+      }[sigma.algorithm]
+
+      let secret = {
+        "ecdsa": sigma.keypair.current?.ECDSA.secret,
+        "ed25519": sigma.keypair.current?.Ed25519.secret
+      }[sigma.algorithm]
+
+      secret && master.sign(algorithm, secret)
+
+      if (signature) {
+        let ie = master.elements.find(e => e.identifier == 0x43)
+        ie && ie.value.set(signature, 1)
+      }
+    }
 
     const packets = master.split()
 
@@ -306,62 +306,8 @@ function ClientProvider({ children }: ClientProviderProps) {
   }
 
   useEffect(() => {
-    function generate() {
-      const ECDSA = keygen(SignatureAlgorithm.ECDSA) as KeyPair<SignatureAlgorithm.ECDSA>
-      const Ed25519 = keygen(SignatureAlgorithm.ED25519) as KeyPair<SignatureAlgorithm.ED25519>
-      const keys: KeyPairs = { ECDSA, Ed25519 }
-
-      keypair.current = keys
-      
-      const serialized = JSON.stringify({
-        ecdsa: {
-          secret: ECDSA.secret.toHex(),
-          shared: ECDSA.shared.toHex()
-        },
-
-        ed25519: {
-          secret: Ed25519.secret.toHex(),
-          shared: Ed25519.shared.toHex()
-        }
-      })
-
-      localStorage.setItem("keypairs", serialized)
-    }
-
-    const saved = localStorage.getItem("keypairs")
-    if (saved) {
-      try {
-        const deserialized: {
-          ecdsa: { secret: string, shared: string },
-          ed25519: { secret: string, shared: string }
-        } = JSON.parse(saved)
-        
-        if (
-          !deserialized.ecdsa || !deserialized.ed25519 ||
-          !deserialized.ecdsa.secret || !deserialized.ecdsa.shared ||
-          !deserialized.ed25519.secret || !deserialized.ed25519.shared
-        ) { generate() } else {
-          const keys: KeyPairs = {
-            ECDSA: {
-              secret: SignatureAlgorithmKey.fromHex(deserialized.ecdsa.secret, "secret", SignatureAlgorithm.ECDSA),
-              shared: SignatureAlgorithmKey.fromHex(deserialized.ecdsa.shared, "shared", SignatureAlgorithm.ECDSA)
-            },
-
-            Ed25519: {
-              secret: SignatureAlgorithmKey.fromHex(deserialized.ed25519.secret, "secret", SignatureAlgorithm.ED25519),
-              shared: SignatureAlgorithmKey.fromHex(deserialized.ed25519.shared, "shared", SignatureAlgorithm.ED25519)
-            },
-          }
-
-          keypair.current = keys
-        }
-      } catch { generate() }
-    } else generate()
-  }, [])
-
-  useEffect(() => {
-    const ecdsa = keypair.current?.ECDSA.shared
-    const ed25519 = keypair.current?.Ed25519.shared
+    const ecdsa = sigma.keypair.current?.ECDSA.shared
+    const ed25519 = sigma.keypair.current?.Ed25519.shared
 
     if (ecdsa && ed25519) {
       const packet = new SMSKeyPacket(ecdsa, ed25519).serialize()
@@ -370,7 +316,7 @@ function ClientProvider({ children }: ClientProviderProps) {
         connection.send(packet)
       }
     }
-  }, [keypair])
+  }, [sigma.keypair])
 
   useEffect(() => {
     if (ref.current && !ref.current.destroyed) {

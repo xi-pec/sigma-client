@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 
 import {
+  Description,
   Input,
   Modal,
   Separator,
@@ -34,7 +35,7 @@ export function SettingsModal({ children }: { children: React.ReactNode }) {
 
       <Modal.Backdrop>
         <Modal.Container>
-          <Modal.Dialog className="sm:max-w-[360px]">
+          <Modal.Dialog className="sm:max-w-[40vh]">
             <Modal.CloseTrigger />
             <Modal.Header>
               <Modal.Heading className="flex flex-row items-center gap-2">
@@ -67,14 +68,19 @@ export function SettingsModal({ children }: { children: React.ReactNode }) {
               </div>
 
               <div className="grid grid-cols-[1fr_auto] items-center">
-                Identifier
-                <Input 
-                  fullWidth
+                ID
+                <Input
                   variant="secondary"
                   value={id}
                   onChange={(e) => setId(e.target.value)}
                   onBlur={(e) => localStorage.setItem("id", e.target.value)}
                 />
+                
+                <br />
+
+                <Description>
+                  <span className="text-danger">*</span> changes will take effect upon reload.
+                </Description>
               </div>
             </Modal.Body>
           </Modal.Dialog>

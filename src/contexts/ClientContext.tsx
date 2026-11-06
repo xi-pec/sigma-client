@@ -10,7 +10,7 @@ const ClientContext = createContext<{
   seen: Record<string, string>
   read: (peer: string, id: string) => void
   connect: (peer: string) => DataConnection | null
-  send: (peer: string, message: string) => void
+  send: (peer: string, message: string, signature?: Uint8Array) => void
 } | null>(null)
 
 export { ClientContext }

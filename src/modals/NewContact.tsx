@@ -1,16 +1,14 @@
 import { useState } from "react"
 
 import {
-  Avatar,
   Button,
-  Input, 
+  InputGroup, 
   Modal,
   Separator
 } from "@heroui/react";
 
 import {
   Handset,
-  Person,
   Plus
 } from "@gravity-ui/icons"
 
@@ -38,7 +36,7 @@ export function NewContactModal({ children }: { children: React.ReactNode }) {
 
       <Modal.Backdrop>
         <Modal.Container>
-          <Modal.Dialog className="sm:max-w-[360px]">
+          <Modal.Dialog className="sm:max-w-[40vh]">
             <Modal.CloseTrigger />
             <Modal.Header>
               <Modal.Heading className="flex flex-row items-center gap-2">
@@ -53,21 +51,22 @@ export function NewContactModal({ children }: { children: React.ReactNode }) {
                 <Separator className="w-full" />
               </div>
 
-              <div className="p-1 grid grid-cols-[auto_1fr_auto] gap-2">
-                <Avatar variant="soft">
-                  <Person />
-                </Avatar>
+              <div className="p-1">
+                <InputGroup fullWidth variant="secondary">
+                  <InputGroup.Input
+                    placeholder="0912 345 6789"
+                    value={peer}
+                    onChange={(e) => setPeer(e.target.value)}
+                  >
+                  
+                  </InputGroup.Input>
 
-                <Input 
-                  variant="secondary"
-                  placeholder="0912 345 6789"
-                  value={peer}
-                  onChange={(e) => setPeer(e.target.value)}
-                />
-
-                <Button isIconOnly className="aspect-square rounded-xl" variant="primary" onPress={connect}>
-                  <Plus />  
-                </Button>
+                  <InputGroup.Suffix className="pr-0">
+                    <Button isIconOnly size="sm" className="aspect-square rounded-xl" variant="secondary" onPress={connect}>
+                      <Plus />  
+                    </Button>
+                  </InputGroup.Suffix>
+                </InputGroup>
               </div>
             </Modal.Body>
           </Modal.Dialog>

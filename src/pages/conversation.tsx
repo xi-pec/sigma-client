@@ -1,14 +1,15 @@
 import {
   Avatar,
   Button,
-  Input,
+  InputGroup
 } from "@heroui/react"
 
 import {
   ArrowRotateLeft,
   ChevronLeft,
   PaperPlane,
-  Person
+  Person,
+  Shield
 } from "@gravity-ui/icons"
 
 import { useState, useRef, useEffect } from "react";
@@ -17,7 +18,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import DefaultLayout from "@/layouts/default";
 
 import { ConversationLog } from "@/components/ConversationLog";
-
+import { SignatureEditor } from "@/modals/SIGMA";
 import { useConnection } from "@/hooks/useConversation";
 import { getLatestMessage } from "@/utils/messages";
 
@@ -85,30 +86,47 @@ export default function ConversationPage() {
         <div ref={end} className="h-px"></div>
       </div>
 
-      <div className="w-full grid grid-cols-[1fr_auto] gap-2">
-        <Input 
-          className="indent-[.5rem]" 
-          fullWidth variant="secondary" 
+      <InputGroup fullWidth variant="secondary">
+        <InputGroup.Prefix className="pl-2 py-3">
+          <SignatureEditor>
+            <Button
+              size="md"
+              className="aspect-square rounded-xl"
+              isIconOnly
+              variant="secondary"
+            >
+              <Shield />
+            </Button>
+          </SignatureEditor>
+        </InputGroup.Prefix>
+
+        <InputGroup.Input
+          className={!connection.connected || !message ? "text-muted" : ""}
           placeholder={connection.connected ? "Aa" : `${peer} is unavailable.`} 
           value={connection.connected ? message : `${peer} is unavailable.`} 
           onChange={(e) => setMessage(e.target.value)}
           disabled={!connection.connected}
         />
 
-        <Button 
-          isIconOnly 
-          onPress={() => {
-            if (connection.connected) {
-              connection.send(message)
-              setMessage("")
-            } else connection.reconnect()
-          }}
-        >
-          {
-            connection.connected ? <PaperPlane /> : <ArrowRotateLeft />
-          }
-        </Button>
-      </div>
+        <InputGroup.Suffix className="pr-2 py-3">
+          <Button
+            size="md"
+            variant="primary"
+            className="aspect-square rounded-xl"
+            isIconOnly 
+            onPress={() => {
+              if (connection.connected) {
+                connection.send(message)
+                setMessage("")
+              } else connection.reconnect()
+            }}
+          >
+            {
+              connection.connected ? <PaperPlane /> : <ArrowRotateLeft />
+            }
+          </Button>
+        </InputGroup.Suffix>
+      </InputGroup>
     </DefaultLayout>
   );
 }

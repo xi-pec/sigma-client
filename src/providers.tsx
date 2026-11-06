@@ -1,5 +1,12 @@
 import { ClientProvider } from "@/providers/ClientProvider";
+import { SIGMAProvider } from "@/providers/SIGMAProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <ClientProvider>{children}</ClientProvider>;
+  return <>
+    <SIGMAProvider>
+      <ClientProvider>
+        {children}
+      </ClientProvider>
+    </SIGMAProvider>
+  </>
 }

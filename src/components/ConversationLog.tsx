@@ -49,9 +49,9 @@ export function ConversationLog({ logs, seen }: MessageLogProps) {
                   }
                 } else {
                   if (log.verified) {
-                    return <ShieldCheck color="#00d500"/>
+                    return <ShieldCheck className="text-success"/>
                   } else {
-                    return <ShieldExclamation color="#ffa500"/>
+                    return <ShieldExclamation className="text-warning"/>
                   }
                 }
               })()}
