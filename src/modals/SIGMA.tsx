@@ -19,9 +19,10 @@ import {
 
 import {
   ArrowRotateLeft,
+  Dice5,
   Key,
   Lock,
-  Shield,
+  Shield
 } from "@gravity-ui/icons"
 
 import { bytesToHex, hexToBytes } from "@noble/curves/utils.js"
@@ -65,6 +66,20 @@ export function SignatureEditor({ children }: { children: React.ReactNode }) {
     let keypair = keygen(algo)
     setShared(keypair.shared as SignatureAlgorithmSharedKey)
     setSecret(keypair.secret as SignatureAlgorithmSecretKey)
+  }
+
+  function reset() {
+    let selected = algorithms.find((s) => s.id == algorithm)?.id
+    if (!selected || !sigma.keypair.current) return
+
+    let keypair = {
+      "ecdsa": sigma.keypair.current?.ECDSA,
+      "ed25519": sigma.keypair.current?.Ed25519
+    }[selected]
+    if (!keypair) return 
+
+    setShared(keypair.shared)
+    setSecret(keypair.secret)
   }
 
   function send() {
@@ -203,9 +218,10 @@ export function SignatureEditor({ children }: { children: React.ReactNode }) {
                   </InputGroup>
                 </TextField>
 
-                <div className="grid grid-cols-[1fr_auto]">
-                  <Description className="mb-2">
-                    <span className="text-danger">*</span> edits made here are temporary.
+                <div className="grid grid-cols-[1fr_auto_auto]">
+                  <Description className="mb-2 grid grid-cols-[auto_1fr] gap-1">
+                    <span className="text-danger">*</span>
+                    <span>edits made here are temporary.</span>
                   </Description>
 
                   <Button 
@@ -215,6 +231,17 @@ export function SignatureEditor({ children }: { children: React.ReactNode }) {
                     variant="ghost"
                     isDisabled={!enabled || !algorithm}
                     onPress={generate}
+                  >
+                    <Dice5 />
+                  </Button>
+
+                  <Button 
+                    className="rounded-xl aspect-square"
+                    fullWidth
+                    isIconOnly
+                    variant="ghost"
+                    isDisabled={!enabled || !algorithm}
+                    onPress={reset}
                   >
                     <ArrowRotateLeft />
                   </Button>
