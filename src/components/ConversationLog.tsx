@@ -45,10 +45,26 @@ export function ConversationLog({ logs, seen }: MessageLogProps) {
                   if (log.self) {
                     switch(log.state) {
                       case SentMessageLogState.SENT:
-                        return <Check />
+                        return <Tooltip>
+                        <Tooltip.Trigger>
+                          <Check />
+                        </Tooltip.Trigger>
+
+                        <Tooltip.Content>
+                          Message has been sent.
+                        </Tooltip.Content>
+                      </Tooltip>
 
                       case SentMessageLogState.DELIVERED:
-                        return <CheckDouble />
+                        return <Tooltip>
+                        <Tooltip.Trigger>
+                          <CheckDouble />
+                        </Tooltip.Trigger>
+
+                        <Tooltip.Content>
+                          Message has been delivered.
+                        </Tooltip.Content>
+                      </Tooltip>
                     }
                   } else {
                     if (log.sigma == MessageSIGMAState.VALID) {
