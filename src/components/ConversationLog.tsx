@@ -9,7 +9,7 @@ import {
   ShieldExclamation
 } from "@gravity-ui/icons"
 
-import { MessageLog, SentMessageLogState } from "@/hooks/useConversation"
+import { MessageLog, MessageSIGMAState, SentMessageLogState } from "@/hooks/useConversation"
 import { Timestamp } from "@/components/Timestamp"
 
 export interface MessageLogProps {
@@ -48,9 +48,11 @@ export function ConversationLog({ logs, seen }: MessageLogProps) {
                       return <CheckDouble />
                   }
                 } else {
-                  if (log.verified) {
+                  if (log.sigma == MessageSIGMAState.VALID) {
                     return <ShieldCheck className="text-success"/>
-                  } else {
+                  } else if (log.sigma == MessageSIGMAState.INVALID) {
+                    return <ShieldExclamation className="text-danger"/>
+                  } else if (log.sigma == MessageSIGMAState.MISSING) {
                     return <ShieldExclamation className="text-warning"/>
                   }
                 }

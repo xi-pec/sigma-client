@@ -14,6 +14,12 @@ export enum SentMessageLogState {
   DELIVERED = 2
 }
 
+export enum MessageSIGMAState {
+  MISSING = 0,
+  INVALID = 1,
+  VALID = 2
+}
+
 export type SentMessageLog = BaseMessageLog<true> & {
   self: true
   state: SentMessageLogState
@@ -21,7 +27,7 @@ export type SentMessageLog = BaseMessageLog<true> & {
 
 export type ReceivedMessageLog = BaseMessageLog<false> & {
   self: false
-  verified: boolean
+  sigma: MessageSIGMAState
 }
 
 export type MessageLog = SentMessageLog | ReceivedMessageLog

@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import  { DataConnection, Peer } from "peerjs"
 
-import { MessageLog, ReceivedMessageLog, SentMessageLog, SentMessageLogState } from "@/hooks/useConversation"
+import { MessageLog, MessageSIGMAState, ReceivedMessageLog, SentMessageLog, SentMessageLogState } from "@/hooks/useConversation"
 import { useSIGMA } from "@/hooks/useSIGMA";
 import { ClientContext } from "@/contexts/ClientContext";
 import { Keys } from "@/providers/SIGMAProvider";
@@ -54,7 +54,7 @@ function ClientProvider({ children }: ClientProviderProps) {
             state: SentMessageLogState.SENDING
           } as SentMessageLog : {
             self, message,
-            verified: false
+            sigma: MessageSIGMAState.MISSING
           } as ReceivedMessageLog
         }
       }
@@ -91,13 +91,13 @@ function ClientProvider({ children }: ClientProviderProps) {
     })
   }
 
-  function verify(peer: string, id: string, verified: boolean) {
+  function verify(peer: string, id: string, sigma: MessageSIGMAState) {
     setLogs((prev) => {
       const messages = prev[peer]
       if (!messages) return prev
 
       const message = messages[id]
-      if (!message || message.self || message.verified) return prev
+      if (!message || message.self || message.sigma) return prev
 
       return {
         ...prev, // keep existing message log entries
@@ -105,7 +105,7 @@ function ClientProvider({ children }: ClientProviderProps) {
           ...(prev[peer] || {}), // keep existing message log entries of peer
           [id]: { 
             ...message,
-            verified
+            sigma
           } as ReceivedMessageLog // append new message data
         }
       }
@@ -213,10 +213,8 @@ function ClientProvider({ children }: ClientProviderProps) {
         const signature = message.elements.find(e => e.identifier == 0x43)
 
         // handle sigma
-        console.log(`has sig: ${Boolean(signature)}`)
         if (signature) {
           const shared = sigma.keys.current.get(connection.peer)
-          console.log(`keys: ${Boolean(shared)}`)
 
           const key = {
             [SignatureAlgorithm.ECDSA]: shared?.ECDSA,
@@ -225,7 +223,12 @@ function ClientProvider({ children }: ClientProviderProps) {
 
           if (key) {
             const verified = message.verify(key)
-            verified && verify(connection.peer, message.id, true)
+            
+            verify(
+              connection.peer,
+              message.id,
+              verified ? MessageSIGMAState.VALID : MessageSIGMAState.INVALID
+            )
           }
         }
 
