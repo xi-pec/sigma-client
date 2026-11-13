@@ -1,5 +1,6 @@
 import {
-  Separator
+  Separator,
+  Tooltip
 } from "@heroui/react"
 
 import {
@@ -49,11 +50,35 @@ export function ConversationLog({ logs, seen }: MessageLogProps) {
                   }
                 } else {
                   if (log.sigma == MessageSIGMAState.VALID) {
-                    return <ShieldCheck className="text-success"/>
+                    return <Tooltip>
+                      <Tooltip.Trigger>
+                        <ShieldCheck className="text-success"/>
+                      </Tooltip.Trigger>
+
+                      <Tooltip.Content>
+                        This message contains a valid signature.
+                      </Tooltip.Content>
+                    </Tooltip>
                   } else if (log.sigma == MessageSIGMAState.INVALID) {
-                    return <ShieldExclamation className="text-danger"/>
+                    return <Tooltip>
+                      <Tooltip.Trigger>
+                        <ShieldExclamation className="text-danger"/>
+                      </Tooltip.Trigger>
+
+                      <Tooltip.Content>
+                        This message contains an invalid signature!
+                      </Tooltip.Content>
+                    </Tooltip>
                   } else if (log.sigma == MessageSIGMAState.MISSING) {
-                    return <ShieldExclamation className="text-warning"/>
+                    return <Tooltip>
+                      <Tooltip.Trigger>
+                        <ShieldExclamation className="text-warning"/>
+                      </Tooltip.Trigger>
+
+                      <Tooltip.Content>
+                        This message does not provide a signature!
+                      </Tooltip.Content>
+                    </Tooltip>
                   }
                 }
               })()}
